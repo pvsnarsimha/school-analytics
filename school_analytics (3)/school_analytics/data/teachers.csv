@@ -1,0 +1,20 @@
+teacher_id,teacher_name,subject,experience_yrs,periods_per_week,other_duties
+T01,Prof. Teja Chowdary,Mathematics,17,30,Sports
+T02,Prof. Harika Prasad,Mathematics,7,22,None
+T03,Prof. Padma Prasad,Mathematics,22,30,Sports
+T04,Prof. Ravi Naidu,Physics,20,22,Sports
+T05,Prof. Sai Sharma,Physics,9,24,Exam cell
+T06,Prof. Padma Yadav,Physics,12,24,Exam cell
+T07,Prof. Sravani Varma,Chemistry,13,25,None
+T08,Prof. Pooja Goud,Chemistry,16,24,Exam cell
+T09,Prof. Divya Rao,Chemistry,21,28,None
+T10,Prof. Anitha Naidu,English,3,32,Exam cell
+T11,Prof. Suresh Varma,English,24,23,Sports
+T12,Prof. Divya Prasad,English,16,27,None
+T13,Prof. Padma Kumar,Computer Science,10,26,Admin
+T14,Prof. Kiran Reddy,Computer Science,6,32,Admin
+T15,Prof. Harika Rao,Computer Science,18,24,None
+T16,Prof. Swathi Chowdary,Biology,21,23,Admin
+T17,Prof. Ramesh Rao,Biology,24,31,Sports
+T18,Prof. Harika Yadav,Biology,21,23,None
+T19,Prof. Guest Faculty (Maths),Mathematics,1,38,Admin + Exam cell

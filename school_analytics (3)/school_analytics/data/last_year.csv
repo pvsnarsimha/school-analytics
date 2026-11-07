@@ -1,0 +1,25 @@
+subject,section,avg_score,pass_rate
+Mathematics,A,54.2,93.6
+Mathematics,B,55.7,93.9
+Mathematics,C,55.9,93.8
+Mathematics,D,54.7,89.8
+Physics,A,54.8,96.2
+Physics,B,54.0,97.7
+Physics,C,54.6,97.1
+Physics,D,54.0,97.9
+Chemistry,A,59.8,98.5
+Chemistry,B,61.2,95.6
+Chemistry,C,60.5,96.0
+Chemistry,D,59.5,97.2
+English,A,67.0,96.2
+English,B,68.3,97.0
+English,C,67.3,97.1
+English,D,68.5,99.1
+Computer Science,A,68.1,97.7
+Computer Science,B,67.1,95.6
+Computer Science,C,68.3,94.0
+Computer Science,D,66.9,97.4
+Biology,A,62.2,97.3
+Biology,B,62.5,95.6
+Biology,C,63.1,96.8
+Biology,D,61.1,95.3

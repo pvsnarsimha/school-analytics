@@ -1,0 +1,13 @@
+streamlit>=1.40
+pandas
+numpy
+plotly
+scikit-learn
+scipy
+statsmodels
+openpyxl
+matplotlib
+fpdf2>=2.7
+uharfbuzz
+anthropic
+shap

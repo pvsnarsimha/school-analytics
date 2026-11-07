@@ -1,0 +1,14 @@
+{
+  "pass_rate": 95,
+  "school_avg": 65,
+  "distinction": 12,
+  "attendance": 85,
+  "subject_avg": {
+    "Mathematics": 60,
+    "Physics": 60,
+    "Chemistry": 60,
+    "English": 60,
+    "Computer Science": 60,
+    "Biology": 60
+  }
+}

@@ -1,0 +1,121 @@
+question_id,subject,topic,q_no,type,max_marks
+BIO-BOTA-Q1,Biology,Botany,1,Recall,5
+BIO-BOTA-Q2,Biology,Botany,2,Recall,5
+BIO-BOTA-Q3,Biology,Botany,3,Application,5
+BIO-BOTA-Q4,Biology,Botany,4,Application,5
+BIO-BOTA-Q5,Biology,Botany,5,Problem-solving,5
+BIO-GENE-Q1,Biology,Genetics,1,Recall,5
+BIO-GENE-Q2,Biology,Genetics,2,Recall,5
+BIO-GENE-Q3,Biology,Genetics,3,Application,5
+BIO-GENE-Q4,Biology,Genetics,4,Application,5
+BIO-GENE-Q5,Biology,Genetics,5,Problem-solving,5
+BIO-HUMA-Q1,Biology,Human Physiology,1,Recall,5
+BIO-HUMA-Q2,Biology,Human Physiology,2,Recall,5
+BIO-HUMA-Q3,Biology,Human Physiology,3,Application,5
+BIO-HUMA-Q4,Biology,Human Physiology,4,Application,5
+BIO-HUMA-Q5,Biology,Human Physiology,5,Problem-solving,5
+BIO-ZOOL-Q1,Biology,Zoology,1,Recall,5
+BIO-ZOOL-Q2,Biology,Zoology,2,Recall,5
+BIO-ZOOL-Q3,Biology,Zoology,3,Application,5
+BIO-ZOOL-Q4,Biology,Zoology,4,Application,5
+BIO-ZOOL-Q5,Biology,Zoology,5,Problem-solving,5
+CHE-INOR-Q1,Chemistry,Inorganic,1,Recall,5
+CHE-INOR-Q2,Chemistry,Inorganic,2,Recall,5
+CHE-INOR-Q3,Chemistry,Inorganic,3,Application,5
+CHE-INOR-Q4,Chemistry,Inorganic,4,Application,5
+CHE-INOR-Q5,Chemistry,Inorganic,5,Problem-solving,5
+CHE-ORGA-Q1,Chemistry,Organic,1,Recall,5
+CHE-ORGA-Q2,Chemistry,Organic,2,Recall,5
+CHE-ORGA-Q3,Chemistry,Organic,3,Application,5
+CHE-ORGA-Q4,Chemistry,Organic,4,Application,5
+CHE-ORGA-Q5,Chemistry,Organic,5,Problem-solving,5
+CHE-PHYS-Q1,Chemistry,Physical,1,Recall,5
+CHE-PHYS-Q2,Chemistry,Physical,2,Recall,5
+CHE-PHYS-Q3,Chemistry,Physical,3,Application,5
+CHE-PHYS-Q4,Chemistry,Physical,4,Application,5
+CHE-PHYS-Q5,Chemistry,Physical,5,Problem-solving,5
+CHE-PRAC-Q1,Chemistry,Practical,1,Recall,5
+CHE-PRAC-Q2,Chemistry,Practical,2,Recall,5
+CHE-PRAC-Q3,Chemistry,Practical,3,Application,5
+CHE-PRAC-Q4,Chemistry,Practical,4,Application,5
+CHE-PRAC-Q5,Chemistry,Practical,5,Problem-solving,5
+COM-DATA-Q1,Computer Science,Data Structures,1,Recall,5
+COM-DATA-Q2,Computer Science,Data Structures,2,Recall,5
+COM-DATA-Q3,Computer Science,Data Structures,3,Application,5
+COM-DATA-Q4,Computer Science,Data Structures,4,Application,5
+COM-DATA-Q5,Computer Science,Data Structures,5,Problem-solving,5
+COM-DATA-Q1,Computer Science,Databases,1,Recall,5
+COM-DATA-Q2,Computer Science,Databases,2,Recall,5
+COM-DATA-Q3,Computer Science,Databases,3,Application,5
+COM-DATA-Q4,Computer Science,Databases,4,Application,5
+COM-DATA-Q5,Computer Science,Databases,5,Problem-solving,5
+COM-NETW-Q1,Computer Science,Networks,1,Recall,5
+COM-NETW-Q2,Computer Science,Networks,2,Recall,5
+COM-NETW-Q3,Computer Science,Networks,3,Application,5
+COM-NETW-Q4,Computer Science,Networks,4,Application,5
+COM-NETW-Q5,Computer Science,Networks,5,Problem-solving,5
+COM-PROG-Q1,Computer Science,Programming,1,Recall,5
+COM-PROG-Q2,Computer Science,Programming,2,Recall,5
+COM-PROG-Q3,Computer Science,Programming,3,Application,5
+COM-PROG-Q4,Computer Science,Programming,4,Application,5
+COM-PROG-Q5,Computer Science,Programming,5,Problem-solving,5
+ENG-GRAM-Q1,English,Grammar,1,Recall,5
+ENG-GRAM-Q2,English,Grammar,2,Recall,5
+ENG-GRAM-Q3,English,Grammar,3,Application,5
+ENG-GRAM-Q4,English,Grammar,4,Application,5
+ENG-GRAM-Q5,English,Grammar,5,Problem-solving,5
+ENG-LITE-Q1,English,Literature,1,Recall,5
+ENG-LITE-Q2,English,Literature,2,Recall,5
+ENG-LITE-Q3,English,Literature,3,Application,5
+ENG-LITE-Q4,English,Literature,4,Application,5
+ENG-LITE-Q5,English,Literature,5,Problem-solving,5
+ENG-READ-Q1,English,Reading,1,Recall,5
+ENG-READ-Q2,English,Reading,2,Recall,5
+ENG-READ-Q3,English,Reading,3,Application,5
+ENG-READ-Q4,English,Reading,4,Application,5
+ENG-READ-Q5,English,Reading,5,Problem-solving,5
+ENG-WRIT-Q1,English,Writing,1,Recall,5
+ENG-WRIT-Q2,English,Writing,2,Recall,5
+ENG-WRIT-Q3,English,Writing,3,Application,5
+ENG-WRIT-Q4,English,Writing,4,Application,5
+ENG-WRIT-Q5,English,Writing,5,Problem-solving,5
+MAT-ALGE-Q1,Mathematics,Algebra,1,Recall,5
+MAT-ALGE-Q2,Mathematics,Algebra,2,Recall,5
+MAT-ALGE-Q3,Mathematics,Algebra,3,Application,5
+MAT-ALGE-Q4,Mathematics,Algebra,4,Application,5
+MAT-ALGE-Q5,Mathematics,Algebra,5,Problem-solving,5
+MAT-CALC-Q1,Mathematics,Calculus,1,Recall,5
+MAT-CALC-Q2,Mathematics,Calculus,2,Recall,5
+MAT-CALC-Q3,Mathematics,Calculus,3,Application,5
+MAT-CALC-Q4,Mathematics,Calculus,4,Application,5
+MAT-CALC-Q5,Mathematics,Calculus,5,Problem-solving,5
+MAT-PROB-Q1,Mathematics,Probability,1,Recall,5
+MAT-PROB-Q2,Mathematics,Probability,2,Recall,5
+MAT-PROB-Q3,Mathematics,Probability,3,Application,5
+MAT-PROB-Q4,Mathematics,Probability,4,Application,5
+MAT-PROB-Q5,Mathematics,Probability,5,Problem-solving,5
+MAT-TRIG-Q1,Mathematics,Trigonometry,1,Recall,5
+MAT-TRIG-Q2,Mathematics,Trigonometry,2,Recall,5
+MAT-TRIG-Q3,Mathematics,Trigonometry,3,Application,5
+MAT-TRIG-Q4,Mathematics,Trigonometry,4,Application,5
+MAT-TRIG-Q5,Mathematics,Trigonometry,5,Problem-solving,5
+PHY-ELEC-Q1,Physics,Electricity,1,Recall,5
+PHY-ELEC-Q2,Physics,Electricity,2,Recall,5
+PHY-ELEC-Q3,Physics,Electricity,3,Application,5
+PHY-ELEC-Q4,Physics,Electricity,4,Application,5
+PHY-ELEC-Q5,Physics,Electricity,5,Problem-solving,5
+PHY-MECH-Q1,Physics,Mechanics,1,Recall,5
+PHY-MECH-Q2,Physics,Mechanics,2,Recall,5
+PHY-MECH-Q3,Physics,Mechanics,3,Application,5
+PHY-MECH-Q4,Physics,Mechanics,4,Application,5
+PHY-MECH-Q5,Physics,Mechanics,5,Problem-solving,5
+PHY-MODE-Q1,Physics,Modern Physics,1,Recall,5
+PHY-MODE-Q2,Physics,Modern Physics,2,Recall,5
+PHY-MODE-Q3,Physics,Modern Physics,3,Application,5
+PHY-MODE-Q4,Physics,Modern Physics,4,Application,5
+PHY-MODE-Q5,Physics,Modern Physics,5,Problem-solving,5
+PHY-OPTI-Q1,Physics,Optics,1,Recall,5
+PHY-OPTI-Q2,Physics,Optics,2,Recall,5
+PHY-OPTI-Q3,Physics,Optics,3,Application,5
+PHY-OPTI-Q4,Physics,Optics,4,Application,5
+PHY-OPTI-Q5,Physics,Optics,5,Problem-solving,5
