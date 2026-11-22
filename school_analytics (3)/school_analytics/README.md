@@ -69,3 +69,38 @@ The chat agent can only call fixed analysis tools on your data, so numbers come 
 ## Data (data/)
 students, teachers, marks (with `absent` column: 1 = absent), attendance (monthly), daily_attendance, homework, homework_status, history (past years), questions + question_marks (question-wise Final), sections (class teachers), last_year, actions, targets.json, users.
 The included data is SAMPLE data created by generate_data.py — running it again resets everything (including passwords and actions).
+
+## New in version 5 — Agentic AI 🧠
+Agents that **watch the data, decide what matters and prepare the work — a person approves everything.** Open **🧠 AI Agents** in the app, or run them on a schedule with `run_agents.py`.
+
+| Agent | What it does on its own | Screenshot |
+|---|---|---|
+| 📰 **Weekly briefing** | Checks attendance, early warnings, homework, risk, actions and data quality → "the 3 things to act on this week" as Problem → Why → Action → Owner → Deadline | [01](docs/agent_screenshots/01_weekly_briefing.png) |
+| ✅ **Action review** | After each exam measures every open action against similar students → **close / extend / change approach**, with a drafted follow-up action | [02](docs/agent_screenshots/02_action_review.png) |
+| 🔔 **Early-warning drafts** | 3+ days absent (or <65% in 30 days) → parent message in **English + Telugu** and a call note for the class teacher | [03](docs/agent_screenshots/03_early_warning_drafts.png) |
+| 🩹 **Remedial planner** | Mistake diagnosis → 2-week day-by-day plan + 2 worksheets → **re-checks after the next exam** and adapts. Can pick the highest-risk students itself | [04](docs/agent_screenshots/04_remedial_planner.png) |
+| 🧪 **Data checks** | Impossible marks, mistyped IDs, sudden jumps → a question + suggested fix for the teacher who entered them | [05](docs/agent_screenshots/05_data_checks.png) |
+| 💬 **Chat with more tools** | `early_warnings`, `homework_summary`, `mistake_profile`, `student_targets`, `fair_teacher_effects`, `explain_student` (SHAP), `attendance_summary` — ask *"Why is S1479 at risk and what should we do?"* | [08](docs/agent_screenshots/08_chat_why_is_student_at_risk.png) |
+
+Also: [approval inbox](docs/agent_screenshots/06_approval_inbox.png), [audit log](docs/agent_screenshots/07_agent_log.png), and the [teacher's view](docs/agent_screenshots/09_teacher_inbox.png) (a teacher sees only their own items).
+
+### Safety rules (built in and tested)
+- **Nothing is sent and no marks change until a person presses Approve.** Approving a data fix is the only thing that edits marks; approving an action proposal updates the Action Tracker.
+- Every agent run and every human decision is written to `agent_log.csv`; drafts wait in `agent_queue.csv`. Rejected/approved items are not re-created for 7 days (no nagging).
+- **Claude never sees student names.** Messages are written with `{STUDENT}` placeholders and filled in locally; chat tool results drop the name column; the new tools return IDs only.
+- **Grounding check:** if Claude's briefing quotes a number that is not in the tool results, it is thrown away and the built-in version is used. If Claude is unavailable, everything still works offline.
+- Role scope: teachers see only their items/students; HODs their subject; parents none.
+- Remedial plans and parent messages are drafts — read them before use. Add school consent before sending any student data to an external AI service.
+
+### Run on a schedule
+```
+python run_agents.py daily        # early-warning drafts + data checks   (every school morning)
+python run_agents.py weekly       # Principal briefing                   (Monday)
+python run_agents.py after-exam   # action review, remedial plans, plan re-check
+python run_agents.py all --no-llm
+```
+Outputs go to `data/agent_outputs/`. Example cron: `30 7 * * 1  cd /path/to/school_analytics && python run_agents.py weekly`.
+Set `SCHOOL_NAME` to put your school's name in parent messages, and `SCHOOL_DATA_DIR` to point at another data folder.
+
+### Demo data & tests
+`python make_demo_data.py` makes `demo_data/` (a copy of `data/` with a few realistic problems added — a mistyped ID, impossible marks, a failed action — used for the screenshots). `SCHOOL_DATA_DIR=demo_data streamlit run app.py`. Tests: `pip install pytest && pytest -q tests` (Claude paths are tested with a fake client, so no API key or network is needed).
