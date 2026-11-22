@@ -29,11 +29,11 @@ def main(argv=None):
     od = d.path("agent_outputs"); os.makedirs(od, exist_ok=True)
     day = d.today.isoformat()
     if "briefing" in out:
-        open(os.path.join(od, f"briefing_{day}.md"), "w").write(G.briefing_markdown(out["briefing"]))
-        json.dump(out["briefing"], open(os.path.join(od, f"briefing_{day}.json"), "w"), indent=1, default=str, ensure_ascii=False)
+        open(os.path.join(od, f"briefing_{day}.md"), "w", encoding="utf-8").write(G.briefing_markdown(out["briefing"]))
+        json.dump(out["briefing"], open(os.path.join(od, f"briefing_{day}.json"), "w", encoding="utf-8"), indent=1, default=str, ensure_ascii=False)
         print(G.briefing_markdown(out["briefing"]))
     if "plan_recheck" in out and out["plan_recheck"]:
-        json.dump(out["plan_recheck"], open(os.path.join(od, f"plan_recheck_{day}.json"), "w"), indent=1, default=str, ensure_ascii=False)
+        json.dump(out["plan_recheck"], open(os.path.join(od, f"plan_recheck_{day}.json"), "w", encoding="utf-8"), indent=1, default=str, ensure_ascii=False)
     new = {k: v["items_created"] for k, v in out.items() if isinstance(v, dict) and "items_created" in v}
     print("Drafts added to the approval inbox:", new or "none")
     return 0

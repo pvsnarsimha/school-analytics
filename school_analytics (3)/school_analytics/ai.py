@@ -253,9 +253,10 @@ def _ask_offline(q, T):
     subj = _find(subjects, q)
     sec = next((s for s in sections if re.search(rf"\bsection\s*{s.lower()}\b|\b{s.lower()}\s*section\b", q.lower())), None)
     ql = q.lower(); tabs = []
-    m_ = re.search(r"\bs\d{4}\b", ql)
-    if m_:
-        return _student_answer(m_.group(0).upper(), T)
+    import planner                      # Layer 1: rule-based investigator (multi-step, no AI model). Falls through if no playbook fits.
+    r_ = planner.investigate(q, T)
+    if r_ is not None:
+        return r_
     if any(w in ql for w in ["risk", "fail the final", "likely to fail", "danger"]):
         df = T.at_risk(sec); tabs.append(("Students at high risk", df))
         return (f"**{len(df)} students{' in Section ' + sec if sec else ''} have a 60%+ chance of failing the final.**\n\n"
@@ -293,34 +294,9 @@ def _ask_offline(q, T):
 
 
 def _student_answer(sid, T):
-    """One-student question: chains the student-level tools (why at risk + attendance + mistakes + target + warnings) into one answer."""
-    tabs, parts, steps = [], [], []
-    def run(name, **kw):
-        try:
-            df = T.call(name, kw); tabs.append((f"{name.replace('_', ' ').title()} — {sid}", df)); return df
-        except Exception as ex:
-            return None
-    ex = run("explain_student", student_id=sid)
-    if ex is None:
-        return f"I can't show **{sid}** — the ID is not in the students you are allowed to see.", []
-    att = run("attendance_summary", student_id=sid); mp = run("mistake_profile", student_id=sid)
-    tg = run("student_targets", student_id=sid); ew = T.call("early_warnings", {}) if T.x.get("daily") is not None else None
-    e = ex.iloc[0]
-    out = [f"**{sid} has about a {e.risk_pct:.0f}% chance of failing at least one subject.**", "", f"- **Why:** {e.plain_story}"]
-    if att is not None:
-        a = att.iloc[0]
-        if "absent_streak" in a and a.absent_streak >= 3: out.append(f"- **Attendance alert:** absent {int(a.absent_streak)} school days in a row; {a.attendance_last_30_days:.0f}% present in the last 30 days.")
-        else: out.append(f"- **Attendance:** {a.attendance_pct_year:.0f}% this year; homework submitted {a.homework_submitted_pct:.0f}%.")
-    if mp is not None and len(mp):
-        weak = mp[mp.diagnosis.isin(["Careless mistakes", "Concept gap", "Needs hard-problem practice"])]
-        for r in weak.head(3).itertuples():
-            out.append(f"- **{r.subject}:** {r.diagnosis} — {MISTAKE_ACTION_TXT.get(r.diagnosis, '')}")
-    if tg is not None and len(tg):
-        w = tg.sort_values("current").iloc[0]
-        out.append(f"- **Target:** weakest subject is {w.subject} (now {w.current:.0f}); a realistic next-exam target is {w.target_next_exam:.0f}.")
-    out += ["", "👉 **What to do:** " + ("call the parent today, then " if (ew is not None and sid in set(ew.student_id)) else "")
-            + (f"work on {e.can_change_quickly.lower()}; " if e.can_change_quickly != "—" else "") + "start a 2-week remedial plan for the weakest subject (AI Agents → Remedial planner) and re-check after the next exam."]
-    return "\n".join(out), tabs
+    """One-student question — handled by the rule-based investigator (planner.py), which skips checks that do not apply."""
+    import planner
+    return planner.student_playbook(planner.Run(T), sid)
 
 
 MISTAKE_ACTION_TXT = {"Careless mistakes": "knows the concept but loses easy marks; teach checking habits.", "Concept gap": "basics are missing; re-teach from the start.",

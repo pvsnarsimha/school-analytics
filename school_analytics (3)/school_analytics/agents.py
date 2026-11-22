@@ -142,10 +142,10 @@ def _apply_marks_fix(d, fx):
 
 def _activate_plan(d, plan):
     f = d.path("remedial_plans.json")
-    plans = json.load(open(f)) if os.path.exists(f) else []
+    plans = json.load(open(f, encoding="utf-8")) if os.path.exists(f) else []
     plan = dict(plan, status="Active")
     plans = [p for p in plans if p["plan_id"] != plan["plan_id"]] + [plan]
-    json.dump(plans, open(f, "w"), ensure_ascii=False, indent=1)
+    json.dump(plans, open(f, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
 
 def decide(d, item_id, status, by, body_en=None, body_te=None):
@@ -235,12 +235,13 @@ def grounded(text, evidence):
     return all(n in have or str(int(round(float(n)))) in have for n in re.findall(r"\d{2,}(?:\.\d+)?", text))
 
 
+EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]   # not strftime: "%-d" fails on Windows
 TE_MONTHS = ["జనవరి", "ఫిబ్రవరి", "మార్చి", "ఏప్రిల్", "మే", "జూన్", "జూలై", "ఆగస్టు", "సెప్టెంబర్", "అక్టోబర్", "నవంబర్", "డిసెంబర్"]
 
 
 def _dstr(x, te=False):
     x = dt.date.fromisoformat(str(x))
-    return f"{x.day} {TE_MONTHS[x.month - 1]}" if te else x.strftime("%-d %b")
+    return f"{x.day} {(TE_MONTHS if te else EN_MONTHS)[x.month - 1]}"
 
 
 # ====================================================================== 2. action tracker agent
@@ -466,7 +467,7 @@ def plan_markdown(p):
 def remedial_autoplan(d, top_n=10, owner_filter=None, queue=True):
     """After an exam the agent picks the highest-risk students itself, drafts a plan for each and sends them for approval."""
     f = d.path("remedial_plans.json")
-    active = {(p["student_id"], p["subject"]) for p in json.load(open(f)) if p["status"] == "Active"} if os.path.exists(f) else set()
+    active = {(p["student_id"], p["subject"]) for p in json.load(open(f, encoding="utf-8")) if p["status"] == "Active"} if os.path.exists(f) else set()
     plans = []
     for sid in d.risk_prob[d.risk_prob >= HIGH_RISK].sort_values(ascending=False).index:
         if len(plans) >= top_n: break
@@ -486,7 +487,7 @@ def recheck_plans(d):
     f = d.path("remedial_plans.json")
     if not os.path.exists(f): return []
     out = []
-    for p in json.load(open(f)):
+    for p in json.load(open(f, encoding="utf-8")):
         if p["status"] != "Active" or d.last_order < p["recheck_exam_order"]:
             continue
         r = d.ss[(d.ss.student_id == p["student_id"]) & (d.ss.subject == p["subject"]) & (d.ss.exam_order == p["recheck_exam_order"])]
