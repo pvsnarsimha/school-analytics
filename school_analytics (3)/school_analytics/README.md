@@ -104,3 +104,19 @@ Set `SCHOOL_NAME` to put your school's name in parent messages, and `SCHOOL_DATA
 
 ### Demo data & tests
 `python make_demo_data.py` makes `demo_data/` (a copy of `data/` with a few realistic problems added — a mistyped ID, impossible marks, a failed action — used for the screenshots). `SCHOOL_DATA_DIR=demo_data streamlit run app.py`. Tests: `pip install pytest && pytest -q tests` (Claude paths are tested with a fake client, so no API key or network is needed).
+
+## Layer 1 — free "investigator" in the AI Assistant (no AI model, no key, ₹0)
+With no `ANTHROPIC_API_KEY`, **Ask the data** no longer just matches keywords. `planner.py` runs a small multi-step investigation: it calls a tool, **reads the result, and a rule decides what to look at next**.
+
+Example — *"Why are Maths marks low?"*
+1. `subject_summary` → Maths is the lowest subject
+2. `section_comparison` → Section C is 14 marks behind Section A → **the problem is one class** (if all sections were alike it would instead check the kind of mistakes)
+3. `fair_teacher_effects` → is it the teacher, after allowing for students' past marks?
+4. `topic_scores(section=C)` → weakest topic
+5. `homework_summary` → is homework a factor?
+
+Playbooks: weakest subject / "why is X low", who is at risk, absences, homework, teachers who need support, careless vs concept gaps, trends, and one student (`S1479` — skips the attendance-alert check when attendance is fine).
+Every answer ends with a **🔎 How I investigated** list of the steps and what each found. Screenshot: [10](docs/agent_screenshots/10_investigator_maths.png).
+
+**Guarantees (tested):** never repeats the same call, stops at 10 steps, skips checks that do not apply, degrades gracefully if data is missing, respects role scope, and **never calls a model** (the tests fail if it does).
+**Limits:** it is a rule-based script, not AI. It only handles the question types above; anything else gets the simple subject summary. It can't reason about open questions — for those, add a Claude key (see above).
