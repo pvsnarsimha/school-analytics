@@ -40,8 +40,10 @@ def _complete(system, prompt, max_tokens=1500):
 class Tools:
     """Functions the 'Ask the data' agent can call. Every answer is computed from real data, never invented."""
 
-    def __init__(self, ss, students, teachers, marks, exam, risk_prob=None, allowed_students=None):
+    def __init__(self, ss, students, teachers, marks, exam, risk_prob=None, allowed_students=None, extra=None):
+        """extra (optional) unlocks the student-level tools: dict with daily, sections, hw_per, qm, qs, history, attendance, explain (callable)."""
         self.ss, self.students, self.teachers, self.marks, self.exam, self.risk = ss, students, teachers, marks, exam, risk_prob
+        self.x = extra or {}
         if allowed_students is not None:   # role scope: a teacher only sees their students
             self.ss = ss[ss.student_id.isin(allowed_students)]
             self.marks = marks[marks.student_id.isin(allowed_students)]
@@ -86,6 +88,77 @@ class Tools:
         if section: r = r[r.section == section]
         return r[r.risk_pct >= 60].sort_values("risk_pct", ascending=False).reset_index().head(25)
 
+
+    # ---------------------------------------------------------------- student-level tools (IDs only — no student names are returned)
+    def _sid(self, student_id):
+        sid = str(student_id).strip().upper()
+        if sid not in set(self.students.student_id):
+            raise ValueError(f"{sid} is not a student you can see.")
+        return sid
+
+    def _need(self, *keys):
+        if any(self.x.get(k) is None for k in keys):
+            raise ValueError("This data is not loaded, so this tool is unavailable.")
+
+    def early_warnings(self, section=None):
+        self._need("daily", "sections")
+        import analytics2 as B
+        w = B.early_warnings(self.x["daily"], self.students, self.x["sections"], self.x.get("hw_per"))
+        w = w[w.student_id.isin(self.students.student_id)]
+        if section: w = w[w.section == section]
+        return w[["student_id", "section", "alert", "level", "action"]].head(30)
+
+    def homework_summary(self, subject=None):
+        self._need("hw_per")
+        import analytics2 as B
+        per = self.x["hw_per"]; per = per[per.student_id.isin(self.students.student_id)]
+        if subject: per = per[per.subject == subject]
+        g = per.groupby("subject").agg(avg_submitted_pct=("submitted_pct", "mean"), students_missing_last3=("missing_last3", lambda x: int((x >= 3).sum()))).round(1).reset_index()
+        _, r = B.homework_effect(per, self.ss[self.ss.student_id.isin(self.students.student_id)], self.exam)
+        g["link_with_marks"] = round(r, 2)
+        return g
+
+    def mistake_profile(self, student_id=None, subject=None):
+        self._need("qm", "qs")
+        import analytics2 as B
+        mp = B.mistake_profile(self.x["qm"], self.x["qs"])
+        mp = mp[mp.student_id.isin(self.students.student_id)]
+        if student_id: mp = mp[mp.student_id == self._sid(student_id)]
+        if subject: mp = mp[mp.subject == subject]
+        if student_id: return mp
+        return mp.groupby(["subject", "diagnosis"]).size().rename("students").reset_index().sort_values(["subject", "students"], ascending=[True, False])
+
+    def student_targets(self, student_id):
+        self._need("history")
+        import analytics2 as B
+        t = B.student_targets(self.ss, self.x["history"], self._sid(student_id))
+        return t[["subject", "current", "best_ever", "trend_per_exam", "target_next_exam"]]
+
+    def fair_teacher_effects(self, subject=None):
+        import analytics3 as C3
+        out, _ = C3.fair_teacher_effects(self.ss, self.students, self.teachers, self.exam)
+        if subject: out = out[out.subject == subject]
+        return out[["teacher_name", "subject", "students", "effect", "lo", "hi", "verdict"]].round(1)
+
+    def explain_student(self, student_id):
+        self._need("explain")
+        import analytics3 as C3
+        sid = self._sid(student_id)
+        expl, sv, X = self.x["explain"]()
+        r = expl.loc[sid]
+        return pd.DataFrame([{"student_id": sid, "risk_pct": round(r.risk), "raises_risk": r.raises_risk, "lowers_risk": r.lowers_risk,
+                              "can_change_quickly": r.can_change, "plain_story": C3.student_story(sid, expl, sv, X)}])
+
+    def attendance_summary(self, student_id):
+        d = self.x.get("daily"); sid = self._sid(student_id)
+        row = self.students[self.students.student_id == sid].iloc[0]
+        out = {"student_id": sid, "section": row.section, "attendance_pct_year": row.attendance_pct, "homework_submitted_pct": row.assignment_submission_pct}
+        if d is not None:
+            import analytics2 as B
+            s = B.absence_streaks(d).set_index("student_id").loc[sid]
+            out.update(absent_streak=int(s.absent_streak), attendance_last_30_days=float(s.attendance_last_30_days))
+        return pd.DataFrame([out])
+
     SPECS = [
         {"name": "subject_summary", "description": "Average score and fail % per subject for the selected exam.", "input_schema": {"type": "object", "properties": {}}},
         {"name": "section_comparison", "description": "Average and fail % per section for one subject, with the teacher of each section.",
@@ -100,6 +173,20 @@ class Tools:
          "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}}}},
         {"name": "at_risk", "description": "Students with 60%+ predicted chance of failing the final, optionally for one section.",
          "input_schema": {"type": "object", "properties": {"section": {"type": "string"}}}},
+        {"name": "early_warnings", "description": "Students absent 3+ days in a row, with low 30-day attendance or 3 missed homeworks (IDs only), optionally for one section.",
+         "input_schema": {"type": "object", "properties": {"section": {"type": "string"}}}},
+        {"name": "homework_summary", "description": "Average homework submission % and number of students who missed the last 3 homeworks, per subject, plus how strongly homework is linked with marks.",
+         "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}}}},
+        {"name": "mistake_profile", "description": "Question-wise diagnosis (careless mistakes / concept gap / needs hard-problem practice / strong). For one student_id, or the count of students per diagnosis per subject.",
+         "input_schema": {"type": "object", "properties": {"student_id": {"type": "string"}, "subject": {"type": "string"}}}},
+        {"name": "student_targets", "description": "A realistic next-exam target per subject for one student (from their own trend and best marks).",
+         "input_schema": {"type": "object", "properties": {"student_id": {"type": "string"}}, "required": ["student_id"]}},
+        {"name": "fair_teacher_effects", "description": "Fair teacher comparison (multilevel model): marks above/below what is expected for their students, with a likely range. Small classes are shrunk toward average.",
+         "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}}}},
+        {"name": "explain_student", "description": "Why one student is at risk: risk %, facts raising and lowering it (SHAP), which of them can change quickly, and a plain-language story.",
+         "input_schema": {"type": "object", "properties": {"student_id": {"type": "string"}}, "required": ["student_id"]}},
+        {"name": "attendance_summary", "description": "One student's attendance this year, last 30 days, current absence streak, and homework submission %.",
+         "input_schema": {"type": "object", "properties": {"student_id": {"type": "string"}}, "required": ["student_id"]}},
     ]
 
     def call(self, name, args):
@@ -111,6 +198,7 @@ Answer ONLY from the tool results — never invent numbers. Call tools to get fa
 Write for a non-technical principal: short, plain English, no jargon (say "marks above expected", not "value-added coefficient").
 Structure: 1) direct answer in one sentence, 2) the evidence (2-4 bullet points with numbers), 3) one or two practical actions.
 If the data cannot answer the question, say so honestly. Correlation is not proof of cause — say "linked with", not "causes".
+For a question about one student (an ID like S1085), combine explain_student, attendance_summary, mistake_profile, student_targets and early_warnings, then give causes and 2-3 practical next steps.
 Pass mark is 35. Subjects: {subjects}. Sections: {sections}. Current exam: {exam}."""
 
 
@@ -141,7 +229,7 @@ def _ask_llm(question, tools, history):
                 try:
                     df = tools.call(b.name, b.input)
                     tables.append((f"{b.name.replace('_', ' ').title()} {json.dumps(b.input) if b.input else ''}", df))
-                    content = df.to_csv(index=False)
+                    content = df.drop(columns=[c for c in ("student_name",) if c in df]).to_csv(index=False)  # privacy: no student names to the model
                 except Exception as ex:
                     content = f"error: {ex}"
                 results.append({"type": "tool_result", "tool_use_id": b.id, "content": content[:6000]})
@@ -165,6 +253,9 @@ def _ask_offline(q, T):
     subj = _find(subjects, q)
     sec = next((s for s in sections if re.search(rf"\bsection\s*{s.lower()}\b|\b{s.lower()}\s*section\b", q.lower())), None)
     ql = q.lower(); tabs = []
+    m_ = re.search(r"\bs\d{4}\b", ql)
+    if m_:
+        return _student_answer(m_.group(0).upper(), T)
     if any(w in ql for w in ["risk", "fail the final", "likely to fail", "danger"]):
         df = T.at_risk(sec); tabs.append(("Students at high risk", df))
         return (f"**{len(df)} students{' in Section ' + sec if sec else ''} have a 60%+ chance of failing the final.**\n\n"
@@ -199,6 +290,41 @@ def _ask_offline(q, T):
     return (f"**Weakest subject: {w.subject} (average {w.average:.0f}, {w.fail_pct:.0f}% failing).**\n\n"
             + "\n".join(f"- {r.subject}: {r.average:.0f}" for r in df.itertuples())
             + f"\n\nTry asking: *'Why is {w.subject} low?'*, *'Which {w.subject} topic is weakest in Section C?'*, *'Who is at risk in Section B?'*"), tabs
+
+
+def _student_answer(sid, T):
+    """One-student question: chains the student-level tools (why at risk + attendance + mistakes + target + warnings) into one answer."""
+    tabs, parts, steps = [], [], []
+    def run(name, **kw):
+        try:
+            df = T.call(name, kw); tabs.append((f"{name.replace('_', ' ').title()} — {sid}", df)); return df
+        except Exception as ex:
+            return None
+    ex = run("explain_student", student_id=sid)
+    if ex is None:
+        return f"I can't show **{sid}** — the ID is not in the students you are allowed to see.", []
+    att = run("attendance_summary", student_id=sid); mp = run("mistake_profile", student_id=sid)
+    tg = run("student_targets", student_id=sid); ew = T.call("early_warnings", {}) if T.x.get("daily") is not None else None
+    e = ex.iloc[0]
+    out = [f"**{sid} has about a {e.risk_pct:.0f}% chance of failing at least one subject.**", "", f"- **Why:** {e.plain_story}"]
+    if att is not None:
+        a = att.iloc[0]
+        if "absent_streak" in a and a.absent_streak >= 3: out.append(f"- **Attendance alert:** absent {int(a.absent_streak)} school days in a row; {a.attendance_last_30_days:.0f}% present in the last 30 days.")
+        else: out.append(f"- **Attendance:** {a.attendance_pct_year:.0f}% this year; homework submitted {a.homework_submitted_pct:.0f}%.")
+    if mp is not None and len(mp):
+        weak = mp[mp.diagnosis.isin(["Careless mistakes", "Concept gap", "Needs hard-problem practice"])]
+        for r in weak.head(3).itertuples():
+            out.append(f"- **{r.subject}:** {r.diagnosis} — {MISTAKE_ACTION_TXT.get(r.diagnosis, '')}")
+    if tg is not None and len(tg):
+        w = tg.sort_values("current").iloc[0]
+        out.append(f"- **Target:** weakest subject is {w.subject} (now {w.current:.0f}); a realistic next-exam target is {w.target_next_exam:.0f}.")
+    out += ["", "👉 **What to do:** " + ("call the parent today, then " if (ew is not None and sid in set(ew.student_id)) else "")
+            + (f"work on {e.can_change_quickly.lower()}; " if e.can_change_quickly != "—" else "") + "start a 2-week remedial plan for the weakest subject (AI Agents → Remedial planner) and re-check after the next exam."]
+    return "\n".join(out), tabs
+
+
+MISTAKE_ACTION_TXT = {"Careless mistakes": "knows the concept but loses easy marks; teach checking habits.", "Concept gap": "basics are missing; re-teach from the start.",
+                      "Needs hard-problem practice": "understands basics; give multi-step problems."}
 
 
 # ====================================================================== teacher feedback

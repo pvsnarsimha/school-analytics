@@ -11,9 +11,10 @@ import reports as R
 import analytics2 as B
 import analytics3 as C3
 import ai
+import agents as AG
 
 st.set_page_config(page_title="School Performance Analytics", page_icon="📊", layout="wide")
-DATA = os.path.join(os.path.dirname(__file__), "data")
+DATA = os.environ.get("SCHOOL_DATA_DIR") or os.path.join(os.path.dirname(__file__), "data")
 P = lambda f: os.path.join(DATA, f)
 SEQ = ["#4f8ff7", "#f2c811", "#2fbf71", "#e86bd1", "#22c3d6", "#f58a42"]
 STATUS_COLOR = {"Good": "#2fbf71", "Watch": "#f5a524", "Action needed": "#ef5b5b"}
@@ -227,12 +228,12 @@ else:
 
 PAGES = {
     "principal": ["🏠 Principal Summary", "🔔 Early Warnings", "🏫 School Details", "📚 Subjects & Topics", "👩‍🏫 Teachers", "⚖️ Teacher Workload",
-                  "⚠️ Students at Risk", "🔍 Mistake Analysis", "🎯 Targets & Progress", "🔬 Deep Analysis", "🤖 AI Assistant", "✅ Action Tracker",
+                  "⚠️ Students at Risk", "🔍 Mistake Analysis", "🎯 Targets & Progress", "🔬 Deep Analysis", "🤖 AI Assistant", "🧠 AI Agents", "✅ Action Tracker",
                   "🎓 Report Cards", "📄 PDF Reports", "📅 Attendance", "📘 Homework", "📝 Marks Entry", "🧪 Pilot Toolkit", "🩺 Data Health", "⚙️ Settings"],
     "hod": ["📚 Subjects & Topics", "🔔 Early Warnings", "👩‍🏫 Teachers", "⚖️ Teacher Workload", "⚠️ Students at Risk", "🔍 Mistake Analysis",
-            "🎯 Targets & Progress", "🤖 AI Assistant", "✅ Action Tracker", "🎓 Report Cards", "📄 PDF Reports", "📘 Homework", "📝 Marks Entry", "🩺 Data Health", "⚙️ Settings"],
+            "🎯 Targets & Progress", "🤖 AI Assistant", "🧠 AI Agents", "✅ Action Tracker", "🎓 Report Cards", "📄 PDF Reports", "📘 Homework", "📝 Marks Entry", "🩺 Data Health", "⚙️ Settings"],
     "teacher": ["🔔 Early Warnings", "📅 Attendance", "👩‍🏫 Teachers", "⚠️ Students at Risk", "🔍 Mistake Analysis", "🎯 Targets & Progress",
-                "🤖 AI Assistant", "🎓 Report Cards", "📄 PDF Reports", "📘 Homework", "📝 Marks Entry", "⚙️ Settings"],
+                "🤖 AI Assistant", "🧠 AI Agents", "🎓 Report Cards", "📄 PDF Reports", "📘 Homework", "📝 Marks Entry", "⚙️ Settings"],
     "parent": ["🎓 Report Cards", "⚙️ Settings"],
 }[ROLE]
 
@@ -1014,9 +1015,11 @@ elif page == "🤖 AI Assistant":
     tabs = st.tabs(["💬 Ask the data", "🗒️ Teacher feedback", "📄 Remedial worksheet"])
     with tabs[0]:
         st.caption("Ask in plain English. Answers are calculated from your school's data.")
-        tools = ai.Tools(ss, students, teachers, marks, exam, risk_prob, allowed_students=None if ROLE in ("principal", "hod") else VISIBLE.student_id)
+        extra = dict(daily=X["daily_attendance"], sections=sections, hw_per=hw_per, qm=X["question_marks"], qs=X["questions"], history=X["history"],
+                     explain=lambda: risk_explained(ss, students, attendance, KEY))
+        tools = ai.Tools(ss, students, teachers, marks, exam, risk_prob, allowed_students=None if ROLE in ("principal", "hod") else VISIBLE.student_id, extra=extra)
         if "chat" not in st.session_state: st.session_state.chat = []
-        ex_q = ["Which section is weakest in Chemistry and why?", "Why are Maths marks low?", "Which Physics topic is weakest in Section C?", "Who is at risk in Section B?"]
+        ex_q = ["Which section is weakest in Chemistry and why?", "Why are Maths marks low?", "Who is at risk in Section B?", f"Why is {risk_prob.reindex(VISIBLE.student_id).idxmax()} at risk and what should we do?"]
         cols = st.columns(len(ex_q)); clicked = None
         for c_, q_ in zip(cols, ex_q):
             if c_.button(q_, use_container_width=True): clicked = q_
@@ -1024,7 +1027,7 @@ elif page == "🤖 AI Assistant":
             with st.chat_message(m_["role"]):
                 st.markdown(m_["content"])
                 for ttl, df in m_.get("tables", []):
-                    if isinstance(df, pd.DataFrame) and len(df) and df.shape[1] >= 2:
+                    if isinstance(df, pd.DataFrame) and len(df) > 1 and df.shape[1] >= 2:
                         num = df.select_dtypes("number").columns
                         if len(num):
                             show(px.bar(df, x=df.columns[0], y=num[0], title=ttl), 260)
@@ -1066,6 +1069,203 @@ elif page == "🤖 AI Assistant":
             st.markdown(md)
             st.download_button("⬇️ Download worksheet (.md)", md, f"worksheet_{sj}_{tp_}.md")
             st.caption("Made by " + ("Claude AI" if mode == "Claude" else "built-in question generator") + " — please check before giving to students.")
+
+# ================================================================== AI AGENTS
+elif page == "🧠 AI Agents":
+    st.title("AI Agents")
+    st.caption("Agents watch the data, decide what matters and prepare the work. **They never send a message or change marks — a person approves everything.**")
+
+    @st.cache_resource
+    def agent_data(_k, _day):
+        return AG.SchoolData(DATA)
+    d = agent_data((KEY, XKEY, mtime("actions.csv", "agent_queue.csv")), dt.date.today())
+    CLAUDE = ai.llm_available()
+    (st.success if CLAUDE else st.info)("Claude AI is connected — agents use it for writing and planning." if CLAUDE else
+                                         "Offline mode: agents use built-in rules and templates. Add `ANTHROPIC_API_KEY` to use Claude (see README).", icon="✅" if CLAUDE else "ℹ️")
+    ICON = {"parent_alert": "📞", "action_proposal": "✅", "data_check": "🧪", "remedial_plan": "🩹"}
+    who = lambda o: f"{d.tname[o]} ({o})" if o in d.tname else o
+    owner_f = SCOPE if ROLE == "teacher" else None
+
+    def inbox(kinds, prefix):
+        q = AG.visible_queue(d, ROLE, SCOPE, "Pending", kinds)
+        if not len(q):
+            st.success("Nothing is waiting for approval here.", icon="✅"); return
+        q = q.assign(_o=q.level.map({"High": 0, "Medium": 1}).fillna(2)).sort_values(["_o", "item_id"])
+        st.caption(f"{len(q)} waiting for a person to approve. Nothing is sent or changed until you press Approve.")
+        for r in q.head(25).itertuples():
+            with st.container(border=True):
+                lv = {"High": "🔴", "Medium": "🟡"}.get(r.level, "⚪")
+                st.markdown(f"**{ICON.get(r.kind, '•')} {r.title}**  \n<span style='color:#9aa6bd;font-size:.85rem'>{lv} {r.level} · {r.agent} · for {who(r.owner)} · {r.item_id}</span>", unsafe_allow_html=True)
+                en, te = r.body_en, r.body_te
+                if r.kind == "parent_alert":
+                    st.info("📞 **Call note for the class teacher:** " + r.body_note)
+                    c1, c2 = st.columns(2)
+                    en = c1.text_area("Message to parent — English (edit if needed)", r.body_en, height=170, key=f"{prefix}en{r.item_id}")
+                    te = c2.text_area("Message to parent — Telugu (edit if needed)", r.body_te, height=170, key=f"{prefix}te{r.item_id}")
+                else:
+                    st.markdown(r.body_en)
+                    if r.kind == "remedial_plan":
+                        pl = json.loads(r.payload)
+                        for wk, md in pl["worksheets"].items():
+                            with st.expander(f"📄 {wk} worksheet"): st.markdown(md)
+                b1, b2, _ = st.columns([1.3, 1, 5])
+                if b1.button("✅ Approve", key=f"{prefix}ok{r.item_id}", type="primary"):
+                    msg = AG.decide(d, r.item_id, "Approved", U["display_name"], en if r.kind == "parent_alert" else None, te if r.kind == "parent_alert" else None)
+                    st.toast(msg); st.cache_data.clear(); st.rerun()
+                if b2.button("✖ Reject", key=f"{prefix}no{r.item_id}"):
+                    AG.decide(d, r.item_id, "Rejected", U["display_name"]); st.rerun()
+
+    TABS = {"principal": ["📰 Weekly briefing", "✅ Action review", "🔔 Early-warning drafts", "🩹 Remedial planner", "🧪 Data checks", "📥 Approval inbox", "🧾 Agent log"],
+            "hod": ["✅ Action review", "🩹 Remedial planner", "🧪 Data checks", "📥 Approval inbox"],
+            "teacher": ["🔔 Early-warning drafts", "🩹 Remedial planner", "🧪 Data checks", "📥 Approval inbox"]}[ROLE]
+    npend = len(AG.visible_queue(d, ROLE, SCOPE))
+    if ROLE == "principal":
+        c1, c2 = st.columns([1, 4])
+        if c1.button("▶ Run all agents now", type="primary", help="Same as the scheduled run: briefing, action review, early warnings, remedial plans, data checks."):
+            with st.spinner("Agents are working…"):
+                out = AG.run_all(d, use_llm=True)
+                st.session_state["brief"] = out["briefing"]
+            st.cache_data.clear(); st.rerun()
+        c2.markdown(f"<div style='padding-top:.5rem'>📥 <b>{npend}</b> item(s) waiting for approval</div>", unsafe_allow_html=True)
+
+    T = dict(zip(TABS, st.tabs(TABS)))
+
+    # ---- 1. weekly briefing
+    if "📰 Weekly briefing" in T:
+        with T["📰 Weekly briefing"]:
+            st.caption("Every Monday the agent checks attendance, early warnings, homework, risk, actions and data quality, then picks the 3 things to act on.")
+            if st.button("▶ Prepare this week's briefing"):
+                with st.spinner("Gathering facts…"):
+                    st.session_state["brief"] = AG.weekly_briefing(d)
+                os.makedirs(d.path("agent_outputs"), exist_ok=True)
+                open(d.path(f"agent_outputs/briefing_{d.today}.md"), "w").write(AG.briefing_markdown(st.session_state["brief"]))
+            b = st.session_state.get("brief")
+            if b is None:
+                saved = sorted(f for f in os.listdir(d.path("agent_outputs"))) if os.path.isdir(d.path("agent_outputs")) else []
+                saved = [f for f in saved if f.startswith("briefing_") and f.endswith(".json")]
+                if saved: b = json.load(open(d.path(f"agent_outputs/{saved[-1]}")))
+            if b is None:
+                st.info("No briefing yet — press the button above.")
+            else:
+                st.markdown(f'<div class="headline">📌 {b["headline"]}</div>', unsafe_allow_html=True)
+                cols = st.columns(len(b["tiles"]))
+                for c_, (k_, v_) in zip(cols, b["tiles"].items()): c_.metric(k_, v_)
+                for i, x in enumerate(b["items"]):
+                    card(f"""<div style="font-size:1.05rem;font-weight:700;margin-bottom:6px">{i + 1}. {x['problem']}</div><div class="pp">
+                    <b>Why</b><span>{x['why']}</span><b>Action</b><span>{x['action']}</span>
+                    <b>Owner</b><span>{x['owner']}</span><b>Deadline</b><span>{x['deadline']}</span></div>""", "red" if i == 0 else "amb")
+                for g_ in b.get("good_news", []): card("🎉 " + g_, "grn")
+                if b.get("watch"): st.markdown("**Also watching:** " + " · ".join(w_["problem"] for w_ in b["watch"]))
+                if b.get("note"): st.warning(b["note"])
+                st.caption(f"Prepared for {b['date']} · {b['exam']} · written by {'Claude AI' if b['mode'] == 'Claude' else 'built-in rules'}")
+                if b.get("tool_calls"):
+                    with st.expander("🔎 What the agent looked at (tool calls)"):
+                        st.dataframe(pd.DataFrame(b["tool_calls"]), hide_index=True, use_container_width=True)
+                st.download_button("⬇️ Download briefing (.md)", AG.briefing_markdown(b), f"briefing_{b['date']}.md")
+
+    # ---- 2. action review
+    if "✅ Action review" in T:
+        with T["✅ Action review"]:
+            st.caption("After each exam the agent measures every open action against similar students, then recommends **close**, **extend** or **change approach**.")
+            res = AG.review_actions(d, queue=False)
+            recs = [r for r in res["recs"] if ROLE == "principal" or r["subject"] == SCOPE or SCOPE in r["owner"]]
+            if not recs: st.info("No open actions to review.")
+            COL = {"Close": "grn", "Extend": "amb", "Change": "red"}
+            for r in recs:
+                im = r["impact"]
+                with st.container(border=True):
+                    c1, c2 = st.columns([3, 2])
+                    c1.markdown(f"**#{r['action_id']} · {r['action']}**  \nOwner: {r['owner']} · Deadline: {r['deadline']}{' · ⚠️ **overdue**' if r['overdue'] else ''} · Status: {r['status']}")
+                    c1.markdown(f'<div class="find {COL.get(r["decision"].split()[0], "")}"><b>Agent recommends: {r["decision"]}</b><br>{r["next_step"]}</div>', unsafe_allow_html=True)
+                    if im:
+                        fig = go.Figure(go.Scatter(x=[im["effect"]], y=["Effect of the action"], mode="markers", marker=dict(size=14, color="#2fbf71" if im["worked"] else "#f5a524"),
+                                                   error_x=dict(type="data", symmetric=False, array=[im["hi"] - im["effect"]], arrayminus=[im["effect"] - im["lo"]], color="#9aa6bd")))
+                        fig.add_vline(x=0, line_dash="dash", line_color="#9aa6bd")
+                        fig.update_layout(title="Gain vs similar students", xaxis_title="marks", showlegend=False)
+                        with c2: show(fig, 190)
+            if recs and st.button("📥 Send these recommendations to the approval inbox", type="primary"):
+                n = AG.review_actions(d, owner_filter=None if ROLE == "principal" else SCOPE)["items_created"]
+                st.success(f"{n} proposal(s) added to the Approval inbox."); st.rerun()
+            with st.expander("Waiting for approval"): inbox(["action_proposal"], "ar")
+
+    # ---- 3. early-warning drafts
+    if "🔔 Early-warning drafts" in T:
+        with T["🔔 Early-warning drafts"]:
+            st.caption("Students absent 3+ days in a row (or under 65% attendance in 30 days): the agent drafts a **parent message in English and Telugu** and a **call note for the class teacher**.")
+            if st.button("▶ Run early-warning agent", type="primary"):
+                with st.spinner("Checking attendance…"):
+                    r_ = AG.early_warning_agent(d, owner_filter=owner_f)
+                st.success(f"{len(r_['flagged'])} students flagged · {r_['items_created']} new drafts added · written by {'Claude AI' if r_['mode'] == 'Claude' else 'built-in templates'}"); st.session_state["ew"] = r_["flagged"]
+            fl = st.session_state.get("ew")
+            if fl is not None and len(fl):
+                with st.expander(f"📋 Call list — {len(fl)} students", expanded=False):
+                    st.dataframe(fl.sort_values("level"), hide_index=True, use_container_width=True)
+            inbox(["parent_alert"], "ew")
+
+    # ---- 4. remedial planner
+    if "🩹 Remedial planner" in T:
+        with T["🩹 Remedial planner"]:
+            st.caption("Diagnoses the kind of mistakes (careless / concept gap / hard problems), builds a **2-week plan with worksheets**, then **re-checks after the next exam**.")
+            mode_ = st.radio("Who is it for?", ["One student", "Let the agent pick the highest-risk students"], horizontal=True)
+            if mode_ == "One student":
+                c1, c2 = st.columns(2)
+                sid_ = c1.selectbox("Student", VISIBLE.student_id, format_func=lambda x: f"{x} — {d.sname[x]}", key="rp_s")
+                subs_ = ["(weakest subject)"] + SUBJECTS
+                sj_ = c2.selectbox("Subject", subs_, key="rp_sub")
+                if st.button("🩹 Build plan", type="primary"):
+                    st.session_state["rp"] = AG.remedial_plan(d, sid_, None if sj_ == subs_[0] else sj_)
+                p_ = st.session_state.get("rp")
+                if p_:
+                    st.markdown(AG.plan_markdown(p_))
+                    for wk, md in p_["worksheets"].items():
+                        with st.expander(f"📄 {wk} worksheet"): st.markdown(md)
+                    if st.button("📥 Send plan for approval"):
+                        n = AG.add_to_queue(d, [{"agent": "Remedial planner", "kind": "remedial_plan", "level": "Medium", "student_id": p_["student_id"], "section": p_["section"], "owner": p_["owner"],
+                                                 "title": f"{p_['student_name']} ({p_['student_id']}) — {p_['subject']}: {p_['diagnosis']}", "body_en": AG.plan_markdown(p_), "payload": p_, "key": f"plan:{p_['plan_id']}"}])
+                        st.success("Plan added to the Approval inbox." if n else "This plan is already waiting or was decided recently.")
+            else:
+                n_ = st.slider("How many students?", 3, 20, 10)
+                if st.button("🤖 Plan for the highest-risk students", type="primary"):
+                    r_ = AG.remedial_autoplan(d, n_, owner_filter=owner_f)
+                    st.success(f"{len(r_['plans'])} plans drafted · {r_['items_created']} new ones waiting for approval.")
+            st.subheader("Plans waiting for approval"); inbox(["remedial_plan"], "rp")
+            st.subheader("Active plans — re-check after the next exam")
+            rc = AG.recheck_plans(d)
+            if rc and ROLE == "teacher": rc = [x for x in rc if x["owner"] == SCOPE]
+            if rc:
+                df_ = pd.DataFrame([{"Student": f"{x['student_id']} — {x['student_name']}", "Subject": x["subject"], "Diagnosis": x["diagnosis"], "Before": x["baseline"], "Target": x["target"],
+                                     "Now": x["now"], "Result": x["outcome"], "Next step": x["next_step"]} for x in rc])
+                st.dataframe(df_, hide_index=True, use_container_width=True)
+            else:
+                st.caption("No active plans have reached their re-check exam yet.")
+
+    # ---- 5. data checks
+    if "🧪 Data checks" in T:
+        with T["🧪 Data checks"]:
+            st.caption("Finds impossible marks, mistyped IDs and suspicious jumps, then asks the teacher who entered them — with a suggested fix. **Approving a fix changes the marks.**")
+            if st.button("▶ Run data-health agent", type="primary"):
+                with st.spinner("Checking marks…"):
+                    r_ = AG.data_health_agent(d, owner_filter=owner_f)
+                st.session_state["dh"] = r_["findings"]; st.success(f"{r_['items_created']} new question(s) added.")
+            if st.session_state.get("dh") is not None:
+                st.dataframe(st.session_state["dh"].rename(columns={"check": "Check", "count": "Found", "status": ""}), hide_index=True, use_container_width=True)
+            inbox(["data_check"], "dh")
+
+    # ---- approval inbox
+    if "📥 Approval inbox" in T:
+        with T["📥 Approval inbox"]:
+            inbox(None, "all")
+            with st.expander("Recently decided"):
+                dq = AG.visible_queue(d, ROLE, SCOPE, status=None)
+                dq = dq[dq.status != "Pending"].sort_values("decided_at", ascending=False).head(15)
+                st.dataframe(dq[["item_id", "title", "status", "decided_by", "decided_at"]], hide_index=True, use_container_width=True) if len(dq) else st.caption("Nothing decided yet.")
+
+    # ---- audit log
+    if "🧾 Agent log" in T:
+        with T["🧾 Agent log"]:
+            st.caption("Every agent run and every human decision is recorded here.")
+            lg = pd.read_csv(d.path("agent_log.csv")).sort_values("time", ascending=False) if os.path.exists(d.path("agent_log.csv")) else pd.DataFrame()
+            st.dataframe(lg.head(100), hide_index=True, use_container_width=True) if len(lg) else st.caption("No runs yet.")
 
 # ================================================================== PILOT TOOLKIT
 elif page == "🧪 Pilot Toolkit":
