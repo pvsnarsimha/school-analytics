@@ -78,7 +78,7 @@ def test_remedial_plan_and_recheck(d):
     assert len(n["plans"]) == 3
     item = G.load_queue(d).query("kind=='remedial_plan'").iloc[0]
     G.decide(d, item.item_id, "Approved", "T")
-    assert any(x["plan_id"] == json.loads(item.payload)["plan_id"] for x in json.load(open(d.path("remedial_plans.json"))))
+    assert any(x["plan_id"] == json.loads(item.payload)["plan_id"] for x in json.load(open(d.path("remedial_plans.json"), encoding="utf-8")))
 
 
 def test_roles_only_see_their_items(d):
@@ -185,3 +185,8 @@ def test_cli_runner(tmp_path, demo_src):
     out = subprocess.run([sys.executable, os.path.join(ROOT, "run_agents.py"), "all", "--data", str(dst), "--no-llm"], capture_output=True, text=True, cwd=ROOT)
     assert out.returncode == 0, out.stderr
     assert "Drafts added" in out.stdout and any(f.startswith("briefing_") for f in os.listdir(dst / "agent_outputs"))
+
+
+def test_date_format_is_windows_safe():
+    assert G._dstr("2026-11-06") == "6 Nov" and G._dstr("2026-10-30", te=True) == "30 అక్టోబర్"
+    assert "%-" not in open(os.path.join(ROOT, "agents.py"), encoding="utf-8").read().replace('"%-d" fails', "")

@@ -1138,12 +1138,12 @@ elif page == "🧠 AI Agents":
                 with st.spinner("Gathering facts…"):
                     st.session_state["brief"] = AG.weekly_briefing(d)
                 os.makedirs(d.path("agent_outputs"), exist_ok=True)
-                open(d.path(f"agent_outputs/briefing_{d.today}.md"), "w").write(AG.briefing_markdown(st.session_state["brief"]))
+                open(d.path(f"agent_outputs/briefing_{d.today}.md"), "w", encoding="utf-8").write(AG.briefing_markdown(st.session_state["brief"]))
             b = st.session_state.get("brief")
             if b is None:
                 saved = sorted(f for f in os.listdir(d.path("agent_outputs"))) if os.path.isdir(d.path("agent_outputs")) else []
                 saved = [f for f in saved if f.startswith("briefing_") and f.endswith(".json")]
-                if saved: b = json.load(open(d.path(f"agent_outputs/{saved[-1]}")))
+                if saved: b = json.load(open(d.path(f"agent_outputs/{saved[-1]}"), encoding="utf-8"))
             if b is None:
                 st.info("No briefing yet — press the button above.")
             else:
